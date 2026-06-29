@@ -29,7 +29,6 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: false,
       ),
-      // O StreamBuilder monitora se o usuário está logado ou não em tempo real
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
@@ -39,9 +38,9 @@ class MyApp extends StatelessWidget {
             );
           }
           if (snapshot.hasData) {
-            return const TelaCaixa();
+            return TelaCaixa(); // Removido o 'const' que gerava o conflito
           }
-          return const TelaLogin();
+          return TelaLogin(); // Removido o 'const' que gerava o conflito
         },
       ),
     );
@@ -50,7 +49,7 @@ class MyApp extends StatelessWidget {
 
 // --- TELA DE LOGIN ---
 class TelaLogin extends StatefulWidget {
-  const TelaLogin({Key? key}) : super(key: key);
+  TelaLogin({Key? key}) : super(key: key); // Ajustado o construtor
 
   @override
   _TelaLoginState createState() => _TelaLoginState();
@@ -149,7 +148,7 @@ class _TelaLoginState extends State<TelaLogin> {
 
 // --- TELA DO CAIXA ---
 class TelaCaixa extends StatefulWidget {
-  const TelaCaixa({Key? key}) : super(key: key);
+  TelaCaixa({Key? key}) : super(key: key); // Ajustado o construtor
 
   @override
   _TelaCaixaState createState() => _TelaCaixaState();
@@ -200,13 +199,12 @@ class _TelaCaixaState extends State<TelaCaixa> {
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
 
-    // Captura o e-mail do operador logado atualmente
     final User? usuarioAtual = FirebaseAuth.instance.currentUser;
     final String emailOperador = usuarioAtual?.email ?? "Desconhecido";
 
     try {
       final dadosVenda = {
-        "caixa": emailOperador, // Agora salva o e-mail do operador real que fez a venda
+        "caixa": emailOperador,
         "evento": "Dia Com Maria",
         "data_hora": FieldValue.serverTimestamp(),
         "forma_pagamento": formaPagamento,
@@ -245,7 +243,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
         title: const Text("Controle de Caixa - Dia Com Maria"),
         backgroundColor: Colors.blue.shade700,
         actions: [
-          // Botão para deslogar do sistema de forma segura
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: "Sair do Caixa",
@@ -261,7 +258,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Mostra o e-mail do operador ativo no topo
               Text(
                 "Operador: ${usuarioAtual?.email ?? ''}",
                 style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500, fontSize: 13),
