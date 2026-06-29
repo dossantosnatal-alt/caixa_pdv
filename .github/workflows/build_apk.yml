@@ -1,0 +1,35 @@
+name: Gerar APK na Nuvem
+
+on:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar codigo do repositorio
+        uses: actions/checkout@v3
+
+      - name: Instalar o Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Instalar o Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Baixar dependencias
+        run: flutter pub get
+
+      - name: Compilar o APK de Release
+        run: flutter build apk --release
+
+      - name: Disponibilizar o arquivo para Download
+        uses: actions/upload-artifact@v3
+        with:
+          name: aplicativo-caixa
+          path: build/app/outputs/flutter-apk/app-release.apk
