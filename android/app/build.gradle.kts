@@ -2,56 +2,40 @@ import java.util.Properties
 
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
-
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use {
-        localProperties.load(it)
-    }
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 
-val flutterVersionCode =
-    localProperties.getProperty("flutter.versionCode")?.toIntOrNull() ?: 1
-
-val flutterVersionName =
-    localProperties.getProperty("flutter.versionName") ?: "1.0"
+val flutterRoot = localProperties.getProperty("flutter.sdk") ?: ""
+val flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
+val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.example.caixa_pdv"
-
-    compileSdk = flutter.compileSdkVersion
-
-    defaultConfig {
-        applicationId = "com.example.caixa_pdv"
-
-        minSdk = 21
-        targetSdk = flutter.targetSdkVersion
-
-        versionCode = flutterVersionCode
-        versionName = flutterVersionName
-    }
+    compileSdk = 34
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
+    defaultConfig {
+        applicationId = "com.example.caixa_pdv"
+        minSdk = 21
+        targetSdk = 34
+        versionCode = flutterVersionCode.toInt()
+        versionName = flutterVersionName
     }
 
     buildTypes {
         release {
-            // Troque para sua chave de release quando for publicar.
             signingConfig = signingConfigs.getByName("debug")
-
-            isMinifyEnabled = false
-            isShrinkResources = false
         }
     }
 }
