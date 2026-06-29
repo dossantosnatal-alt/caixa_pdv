@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +26,6 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: false,
       ),
-      // Voltamos a abrir direto a TelaCaixa para eliminar a tela cinza de teste
       home: TelaCaixa(),
     );
   }
@@ -62,6 +60,17 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   List<Map<String, dynamic>> carrinho = [];
   String formaPagamento = "Dinheiro";
+  String nomeOperador = ""; // Nome digitado ao abrir o app
+  
+  final TextEditingController _sangriaController = TextEditingController();
+  final TextEditingController _operadorController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pede o nome do operador assim que a tela é desenhada
+    WidgetsBinding.instance.addPostFrameCallback((_) => _abrirModalDefinirOperador());
+  }
 
   double get totalPedido {
     return carrinho.fold(0, (sum, item) => sum + (item['preco'] * item['quantidade']));
@@ -84,16 +93,16 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
-    final User? usuarioAtual = FirebaseAuth.instance.currentUser;
-    final String emailOperador = usuarioAtual?.email ?? "Sem Login (Modo Teste)";
+    final String identificadorCaixa = nomeOperador.trim().isEmpty ? "Operador Geral" : nomeOperador.trim();
 
     try {
       final dadosVenda = {
-        "caixa": emailOperador,
+        "caixa": identificadorCaixa,
         "evento": "Dia Com Maria",
         "data_hora": FieldValue.serverTimestamp(),
         "forma_pagamento": formaPagamento,
         "total": totalPedido,
+        "tipo": "venda",
         "itens": carrinho.map((item) => {
           "nome": item['nome'],
           "preco_unitario": item['preco'],
@@ -119,12 +128,128 @@ class _TelaCaixaState extends State<TelaCaixa> {
     }
   }
 
+  void registrarSangria() async {
+    final double? valor = double.tryParse(_sangriaController.text.replaceFirst(',', '.'));
+    if (valor == null || valor <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Insira um valor válido de sangria'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final String identificadorCaixa = nomeOperador.trim().isEmpty ? "Operador Geral" : nomeOperador.trim();
+
+    try {
+      final dadosSangria = {
+        "caixa": identificadorCaixa,
+        "evento": "Dia Com Maria",
+        "data_hora": FieldValue.serverTimestamp(),
+        "forma_pagamento": "Dinheiro",
+        "total": valor,
+        "tipo": "sangria",
+        "itens": []
+      };
+
+      await FirebaseFirestore.instance.collection('vendas').add(dadosSangria);
+      _sangriaController.clear();
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sangria registrada com sucesso!'), backgroundColor: Colors.blue),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao registrar sangria: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _abrirModalSangria() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Registrar Sangria / Retirada"),
+        content: TextField(
+          controller: _sangriaController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: "Valor da Retirada (R\$)",
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.money_off, color: Colors.red),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("CANCELAR", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: registrarSangria,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("CONFIRMAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _abrirModalDefinirOperador() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Força a preencher o nome
+      builder: (context) => AlertDialog(
+        title: const Text("Identificação do Caixa"),
+        content: TextField(
+          controller: _operadorController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: "Nome do Operador ou Caixa (Ex: Natal, Caixa 1)",
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.person),
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              if (_operadorController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor, informe seu nome para continuar.'), backgroundColor: Colors.orange),
+                );
+                return;
+              }
+              setState(() {
+                nomeOperador = _operadorController.text.trim();
+              });
+              Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
+            child: const Text("ENTRAR NO CAIXA"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final String identificadorCaixa = nomeOperador.isEmpty ? "Identificando..." : nomeOperador;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Controle de Caixa - Dia Com Maria"),
         backgroundColor: Colors.blue.shade700,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.money_off),
+            tooltip: "Registrar Sangria",
+            onPressed: nomeOperador.isEmpty ? null : _abrirModalSangria,
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18),
+            tooltip: "Trocar Operador",
+            onPressed: _abrirModalDefinirOperador,
+          )
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -132,11 +257,83 @@ class _TelaCaixaState extends State<TelaCaixa> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Modo de Teste (Sem Autenticação)",
-                style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 13),
+              // 📊 PAINEL DO SALDO ONLINE FILTRADO POR OPERADOR
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('vendas')
+                    .where('caixa', isEqualTo: identificadorCaixa)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  double totalVendas = 0;
+                  double totalSangrias = 0;
+
+                  if (snapshot.hasData) {
+                    for (var doc in snapshot.data!.docs) {
+                      final dados = doc.data() as Map<String, dynamic>;
+                      final double valor = (dados['total'] as num?)?.toDouble() ?? 0.0;
+                      final String tipo = dados['tipo'] ?? 'venda';
+
+                      if (tipo == 'sangria') {
+                        totalSangrias += valor;
+                      } else {
+                        totalVendas += valor;
+                      }
+                    }
+                  }
+
+                  double saldoAtual = totalVendas - totalSangrias;
+
+                  return Card(
+                    color: Colors.blue.shade900,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Operador: $identificadorCaixa",
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                              ),
+                              const Icon(Icons.sync, color: Colors.greenAccent, size: 16),
+                            ],
+                          ),
+                          const Divider(color: Colors.white24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              Column(
+                                children: [
+                                  const Text("Vendas (+)", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                                  Text("R\$ ${totalVendas.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              Column(
+                                children: [
+                                  const Text("Sangrias (-)", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                                  Text("R\$ ${totalSangrias.toStringAsFixed(2)}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              Column(
+                                children: [
+                                  const Text("Saldo em Caixa", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text(
+                                    "R\$ ${saldoAtual.toStringAsFixed(2)}",
+                                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               const Text(
                 "Produtos Disponíveis",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -194,7 +391,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
               ),
               const SizedBox(height: 8),
               Container(
-                height: 180, 
+                height: 150, 
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(8),
