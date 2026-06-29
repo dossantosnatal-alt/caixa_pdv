@@ -27,118 +27,8 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: false,
       ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          if (snapshot.hasData) {
-            return TelaCaixa();
-          }
-          return TelaLogin();
-        },
-      ),
-    );
-  }
-}
-
-class TelaLogin extends StatefulWidget {
-  TelaLogin({Key? key}) : super(key: key);
-
-  @override
-  _TelaLoginState createState() => _TelaLoginState();
-}
-
-class _TelaLoginState extends State<TelaLogin> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _senhaController = TextEditingController();
-  bool _carregando = false;
-
-  void _fazerLogin() async {
-    setState(() => _carregando = true);
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _senhaController.text.trim(),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Erro ao acessar: ${e.toString()}"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _carregando = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.blue.shade50,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.account_balance_wallet, size: 64, color: Colors.blue.shade700),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Controle de Caixa\nDia Com Maria",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: "E-mail cadastrado",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _senhaController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: "Senha",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _carregando ? null : _fazerLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: _carregando
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text("ENTRAR", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+      // Voltamos a abrir direto a TelaCaixa para eliminar a tela cinza de teste
+      home: TelaCaixa(),
     );
   }
 }
@@ -195,7 +85,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
     final User? usuarioAtual = FirebaseAuth.instance.currentUser;
-    final String emailOperador = usuarioAtual?.email ?? "Desconhecido";
+    final String emailOperador = usuarioAtual?.email ?? "Sem Login (Modo Teste)";
 
     try {
       final dadosVenda = {
@@ -231,21 +121,10 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   @override
   Widget build(BuildContext context) {
-    final User? usuarioAtual = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Controle de Caixa - Dia Com Maria"),
         backgroundColor: Colors.blue.shade700,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: "Sair do Caixa",
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-          )
-        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -254,8 +133,8 @@ class _TelaCaixaState extends State<TelaCaixa> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Operador: ${usuarioAtual?.email ?? ''}",
-                style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w500, fontSize: 13),
+                "Modo de Teste (Sem Autenticação)",
+                style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold, fontSize: 13),
               ),
               const SizedBox(height: 8),
               const Text(
