@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // O Firebase deve ser iniciado aqui. Se houver erro de compilação, 
-  // certifique-se de que o firebase_core está no pubspec.yaml
   runApp(const MyApp());
 }
 
@@ -19,7 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'Controle de Caixa - Dia Com Maria',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        useMaterial3: true,
+        useMaterial3: false,
       ),
       home: const TelaCaixa(),
     );
@@ -34,6 +31,7 @@ class TelaCaixa extends StatefulWidget {
 }
 
 class _TelaCaixaState extends State<TelaCaixa> {
+  // Lista oficial de produtos do evento
   final List<Map<String, dynamic>> produtos = [
     {"nome": "Refrigerante", "preco": 8.00},
     {"nome": "Agua sem gas", "preco": 3.00},
@@ -67,6 +65,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
+
     try {
       final dadosVenda = {
         "caixa": "Caixa_01",
@@ -78,6 +77,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
           "nome": item['nome'],
           "preco_unitario": item['preco'],
           "quantidade": item['quantidade'],
+          "subtotal": item['preco'] * item['quantidade']
         }).toList(),
       };
 
@@ -93,7 +93,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erro ao salvar no Firebase: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -103,26 +103,23 @@ class _TelaCaixaState extends State<TelaCaixa> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Controle de Caixa - Dia Com Maria"),
-        backgroundColor: Colors.blue.shade800,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: () {})
-        ],
+        backgroundColor: Colors.blue.shade700,
       ),
-      body: Row(
+      body: Column( // Alterado para Column para empilhar verticalmente
         children: [
+          // PARTE DE CIMA: Grade de Produtos (3 colunas se ajusta melhor na vertical)
           Expanded(
-            flex: 3,
+            flex: 4, 
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.all(10.0),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4, 
-                  childAspectRatio: 1.3,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
+                  crossAxisCount: 3, // 3 botões por linha na vertical     
+                  childAspectRatio: 1.2, 
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
                 ),
                 itemCount: produtos.length,
                 itemBuilder: (context, index) {
@@ -132,16 +129,24 @@ class _TelaCaixaState extends State<TelaCaixa> {
                       backgroundColor: Colors.blue.shade50,
                       foregroundColor: Colors.blue.shade900,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.blue.shade200),
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(color: Colors.blue.shade200, width: 1.5),
                       ),
                     ),
                     onPressed: () => adicionarAoCarrinho(prod),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(prod['nome'], textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        Text("R\$ ${prod['preco'].toStringAsFixed(2)}", style: const TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.bold)),
+                        Text(
+                          prod['nome'],
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "R\$ ${prod['preco'].toStringAsFixed(2)}",
+                          style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   );
@@ -149,29 +154,53 @@ class _TelaCaixaState extends State<TelaCaixa> {
               ),
             ),
           ),
+
+          // PARTE DE BAIXO: Carrinho e Botão de Finalizar
           Expanded(
-            flex: 2,
+            flex: 5,
             child: Container(
-              color: Colors.grey.shade100,
-              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                border: Border(top: BorderSide(color: Colors.grey.shade300, width: 2.0)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Itens do Pedido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const Divider(),
+                  const Text(
+                    "Itens do Pedido",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(thickness: 1),
+
+                  // LISTA DOS ITENS ADICIONADOS
                   Expanded(
                     child: carrinho.isEmpty
-                        ? const Center(child: Text("Nenhum item selecionado"))
+                        ? const Center(
+                            child: Text(
+                              "Carrinho vazio",
+                              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                            ),
+                          )
                         : ListView.builder(
                             itemCount: carrinho.length,
                             itemBuilder: (context, index) {
                               final item = carrinho[index];
                               return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 2),
                                 child: ListTile(
-                                  title: Text("${item['nome']} (x${item['quantidade']})"),
-                                  trailing: Text("R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}"),
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                                  title: Text(
+                                    "${item['nome']} (x${item['quantidade']})",
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  trailing: Text(
+                                    "R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}",
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
                                   leading: IconButton(
-                                    icon: const Icon(Icons.remove_circle, color: Colors.red),
+                                    icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
                                     onPressed: () {
                                       setState(() {
                                         if (item['quantidade'] > 1) {
@@ -187,34 +216,52 @@ class _TelaCaixaState extends State<TelaCaixa> {
                             },
                           ),
                   ),
-                  const Divider(),
+
+                  const Divider(thickness: 1),
+                  
+                  // EXIBIÇÃO DO TOTAL
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text("TOTAL:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      Text("R\$ ${totalPedido.toStringAsFixed(2)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
+                      const Text("TOTAL:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(
+                        "R\$ ${totalPedido.toStringAsFixed(2)}",
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const Text("Pagamento:"),
+                  const SizedBox(height: 8),
+
+                  // SELEÇÃO DE PAGAMENTO
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
                       return ChoiceChip(
                         label: Text(forma),
                         selected: formaPagamento == forma,
-                        onSelected: (val) => setState(() => formaPagamento = forma),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              formaPagamento = forma;
+                            });
+                          }
+                        },
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
+
+                  // BOTÃO PRINCIPAL
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 48,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: carrinho.isEmpty ? Colors.grey.shade400 : Colors.green,
+                        foregroundColor: Colors.white,
+                      ),
                       onPressed: carrinho.isEmpty ? null : finalizarVenda,
-                      child: const Text("FINALIZAR VENDA", style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text("FINALIZAR VENDA", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
