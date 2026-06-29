@@ -26,13 +26,99 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: false,
       ),
-      home: TelaCaixa(),
+      // Forçamos o app a abrir na tela de identificação limpa primeiro, sem Firebase ativo na UI
+      home: const TelaIdentificacao(),
+    );
+  }
+}
+
+class TelaIdentificacao extends StatefulWidget {
+  const TelaIdentificacao({Key? key}) : super(key: key);
+
+  @override
+  _TelaIdentificacaoState createState() => _TelaIdentificacaoState();
+}
+
+class _TelaIdentificacaoState extends State<TelaIdentificacao> {
+  final TextEditingController _operadorController = TextEditingController();
+
+  void _entrarNoCaixa() {
+    final String nome = _operadorController.text.trim();
+    if (nome.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, informe seu nome para continuar.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    // Navega para a tela de vendas passando o nome de forma segura
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => TelaCaixa(nomeOperador: nome)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.blue.shade50,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.point_of_sale, size: 64, color: Colors.blue.shade700),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Dia Com Maria",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Identificação do Caixa",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: _operadorController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: "Nome do Operador ou Caixa",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: _entrarNoCaixa,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: const Text("ENTRAR NO CAIXA", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
 
 class TelaCaixa extends StatefulWidget {
-  TelaCaixa({Key? key}) : super(key: key);
+  final String nomeOperador;
+  const TelaCaixa({Key? key, required this.nomeOperador}) : super(key: key);
 
   @override
   _TelaCaixaState createState() => _TelaCaixaState();
@@ -60,17 +146,8 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   List<Map<String, dynamic>> carrinho = [];
   String formaPagamento = "Dinheiro";
-  String nomeOperador = ""; // Nome digitado ao abrir o app
   
   final TextEditingController _sangriaController = TextEditingController();
-  final TextEditingController _operadorController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    // Pede o nome do operador assim que a tela é desenhada
-    WidgetsBinding.instance.addPostFrameCallback((_) => _abrirModalDefinirOperador());
-  }
 
   double get totalPedido {
     return carrinho.fold(0, (sum, item) => sum + (item['preco'] * item['quantidade']));
@@ -93,11 +170,10 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
-    final String identificadorCaixa = nomeOperador.trim().isEmpty ? "Operador Geral" : nomeOperador.trim();
 
     try {
       final dadosVenda = {
-        "caixa": identificadorCaixa,
+        "caixa": widget.nomeOperador,
         "evento": "Dia Com Maria",
         "data_hora": FieldValue.serverTimestamp(),
         "forma_pagamento": formaPagamento,
@@ -137,11 +213,9 @@ class _TelaCaixaState extends State<TelaCaixa> {
       return;
     }
 
-    final String identificadorCaixa = nomeOperador.trim().isEmpty ? "Operador Geral" : nomeOperador.trim();
-
     try {
       final dadosSangria = {
-        "caixa": identificadorCaixa,
+        "caixa": widget.nomeOperador,
         "evento": "Dia Com Maria",
         "data_hora": FieldValue.serverTimestamp(),
         "forma_pagamento": "Dinheiro",
@@ -193,61 +267,26 @@ class _TelaCaixaState extends State<TelaCaixa> {
     );
   }
 
-  void _abrirModalDefinirOperador() {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Força a preencher o nome
-      builder: (context) => AlertDialog(
-        title: const Text("Identificação do Caixa"),
-        content: TextField(
-          controller: _operadorController,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: "Nome do Operador ou Caixa (Ex: Natal, Caixa 1)",
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.person),
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              if (_operadorController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Por favor, informe seu nome para continuar.'), backgroundColor: Colors.orange),
-                );
-                return;
-              }
-              setState(() {
-                nomeOperador = _operadorController.text.trim();
-              });
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
-            child: const Text("ENTRAR NO CAIXA"),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final String identificadorCaixa = nomeOperador.isEmpty ? "Identificando..." : nomeOperador;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Controle de Caixa - Dia Com Maria"),
+        title: const Text("Caixa - Dia Com Maria"),
         backgroundColor: Colors.blue.shade700,
         actions: [
           IconButton(
             icon: const Icon(Icons.money_off),
             tooltip: "Registrar Sangria",
-            onPressed: nomeOperador.isEmpty ? null : _abrirModalSangria,
+            onPressed: _abrirModalSangria,
           ),
           IconButton(
-            icon: const Icon(Icons.edit, size: 18),
+            icon: const Icon(Icons.logout, size: 18),
             tooltip: "Trocar Operador",
-            onPressed: _abrirModalDefinirOperador,
+            onPressed: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const TelaIdentificacao()),
+              );
+            },
           )
         ],
       ),
@@ -257,15 +296,37 @@ class _TelaCaixaState extends State<TelaCaixa> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 📊 PAINEL DO SALDO ONLINE FILTRADO POR OPERADOR
+              // 📊 PAINEL INTEGRADO COM BLINDAGEM CONTRA TELA CINZA
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('vendas')
-                    .where('caixa', isEqualTo: identificadorCaixa)
+                    .where('caixa', isEqualTo: widget.nomeOperador)
                     .snapshots(),
                 builder: (context, snapshot) {
                   double totalVendas = 0;
                   double totalSangrias = 0;
+
+                  // Se houver erro de permissão ou conexão no Release, exibe aviso limpo ao invés de quebrar
+                  if (snapshot.hasError) {
+                    return Card(
+                      color: Colors.orange.shade900,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.warning, color: Colors.white),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Modo Offline local ativo (Sincronização pendente chaves Firebase)",
+                                style: TextStyle(color: Colors.white, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
 
                   if (snapshot.hasData) {
                     for (var doc in snapshot.data!.docs) {
@@ -294,10 +355,16 @@ class _TelaCaixaState extends State<TelaCaixa> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                "Operador: $identificadorCaixa",
+                                "Operador: ${widget.nomeOperador}",
                                 style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                               ),
-                              const Icon(Icons.sync, color: Colors.greenAccent, size: 16),
+                              Icon(
+                                snapshot.connectionState == ConnectionState.waiting 
+                                    ? Icons.hourglass_empty 
+                                    : Icons.sync, 
+                                color: Colors.greenAccent, 
+                                size: 16
+                              ),
                             ],
                           ),
                           const Divider(color: Colors.white24),
