@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
-  // Certifique-se de que o Firebase.initializeApp() esteja sendo chamado no seu main real antes de rodar o app
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // O Firebase deve ser iniciado aqui. Se houver erro de compilação, 
+  // certifique-se de que o firebase_core está no pubspec.yaml
   runApp(const MyApp());
 }
 
@@ -12,9 +15,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Caixa PDV',
+      debugShowCheckedModeBanner: false,
+      title: 'Controle de Caixa - Dia Com Maria',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
       home: const TelaCaixa(),
     );
@@ -29,7 +34,6 @@ class TelaCaixa extends StatefulWidget {
 }
 
 class _TelaCaixaState extends State<TelaCaixa> {
-  // Lista oficial de produtos do evento fixada no código
   final List<Map<String, dynamic>> produtos = [
     {"nome": "Refrigerante", "preco": 8.00},
     {"nome": "Agua sem gas", "preco": 3.00},
@@ -39,7 +43,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
     {"nome": "Salgado assado", "preco": 8.00},
   ];
 
-  // Lista dinâmica do carrinho
   List<Map<String, dynamic>> carrinho = [];
   String formaPagamento = "Dinheiro";
 
@@ -64,11 +67,10 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
-
     try {
-      // Monta os dados da venda para salvar na coleção "vendas" do Firebase
       final dadosVenda = {
         "caixa": "Caixa_01",
+        "evento": "Dia Com Maria",
         "data_hora": FieldValue.serverTimestamp(),
         "forma_pagamento": formaPagamento,
         "total": totalPedido,
@@ -76,14 +78,13 @@ class _TelaCaixaState extends State<TelaCaixa> {
           "nome": item['nome'],
           "preco_unitario": item['preco'],
           "quantidade": item['quantidade'],
-          "subtotal": item['preco'] * item['quantidade']
         }).toList(),
       };
 
       await FirebaseFirestore.instance.collection('vendas').add(dadosVenda);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Venda finalizada e salva no Firebase!'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Venda finalizada com sucesso!'), backgroundColor: Colors.green),
       );
 
       setState(() {
@@ -92,7 +93,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar no Firebase: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Erro ao salvar: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -101,23 +102,25 @@ class _TelaCaixaState extends State<TelaCaixa> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Frente de Caixa [ Caixa_01 ] - Meliponário São José"),
-        backgroundColor: Colors.blue.shade700,
+        title: const Text("Controle de Caixa - Dia Com Maria"),
+        backgroundColor: Colors.blue.shade800,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(icon: const Icon(Icons.logout), onPressed: () {})
+        ],
       ),
       body: Row(
         children: [
-          // LADO ESQUERDO: Grade de Produtos (Quadrados menores e em 4 colunas)
           Expanded(
-            flex: 3, 
+            flex: 3,
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(12.0),
               child: GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,      // 4 colunas deixa os botões mais compactos
-                  childAspectRatio: 1.3, // Evita que o texto quebre de forma errada
+                  crossAxisCount: 4, 
+                  childAspectRatio: 1.3,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                 ),
@@ -128,26 +131,17 @@ class _TelaCaixaState extends State<TelaCaixa> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade50,
                       foregroundColor: Colors.blue.shade900,
-                      elevation: 2,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.blue.shade200, width: 1.5),
+                        side: BorderSide(color: Colors.blue.shade200),
                       ),
                     ),
                     onPressed: () => adicionarAoCarrinho(prod),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          prod['nome'],
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "R\$ ${prod['preco'].toStringAsFixed(2)}",
-                          style: const TextStyle(fontSize: 14, color: Colors.green, fontWeight: FontWeight.bold),
-                        ),
+                        Text(prod['nome'], textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        Text("R\$ ${prod['preco'].toStringAsFixed(2)}", style: const TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   );
@@ -155,50 +149,27 @@ class _TelaCaixaState extends State<TelaCaixa> {
               ),
             ),
           ),
-
-          // LADO DIREITO: Painel do Carrinho e Resumo do Pedido (Totalmente Visível)
           Expanded(
             flex: 2,
             child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                border: Border(left: BorderSide(color: Colors.grey.shade300, width: 1.5)),
-              ),
+              color: Colors.grey.shade100,
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Itens do Pedido",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(thickness: 1.5),
-
-                  // LISTA DO CARRINHO COM ROLAGEM
+                  const Text("Itens do Pedido", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Divider(),
                   Expanded(
                     child: carrinho.isEmpty
-                        ? const Center(
-                            child: Text(
-                              "Carrinho vazio",
-                              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 16),
-                            ),
-                          )
+                        ? const Center(child: Text("Nenhum item selecionado"))
                         : ListView.builder(
                             itemCount: carrinho.length,
                             itemBuilder: (context, index) {
                               final item = carrinho[index];
                               return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
                                 child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                  title: Text(
-                                    "${item['nome']} (x${item['quantidade']})",
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  trailing: Text(
-                                    "R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}",
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                                  ),
+                                  title: Text("${item['nome']} (x${item['quantidade']})"),
+                                  trailing: Text("R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}"),
                                   leading: IconButton(
                                     icon: const Icon(Icons.remove_circle, color: Colors.red),
                                     onPressed: () {
@@ -216,67 +187,34 @@ class _TelaCaixaState extends State<TelaCaixa> {
                             },
                           ),
                   ),
-
-                  const Divider(thickness: 1.5),
-                  
-                  // Exibição do Valor Total
+                  const Divider(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text("TOTAL:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      Text(
-                        "R\$ ${totalPedido.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
-                      ),
+                      Text("R\$ ${totalPedido.toStringAsFixed(2)}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.blue)),
                     ],
                   ),
-                  const SizedBox(height: 15),
-
-                  // Seleção da Forma de Pagamento
-                  const Text("Forma de Pagamento:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  const Text("Pagamento:"),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
                       return ChoiceChip(
-                        label: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(forma, style: const TextStyle(fontSize: 13)),
-                        ),
+                        label: Text(forma),
                         selected: formaPagamento == forma,
-                        selectedColor: Colors.blue.shade600,
-                        disabledColor: Colors.grey.shade200,
-                        labelStyle: TextStyle(
-                          color: formaPagamento == forma ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.bold
-                        ),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              formaPagamento = forma;
-                            });
-                          }
-                        },
+                        onSelected: (val) => setState(() => formaPagamento = forma),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 20),
-
-                  // Botão de Finalizar Venda Estilizado
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: carrinho.isEmpty ? Colors.grey.shade400 : Colors.green.shade600,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                       onPressed: carrinho.isEmpty ? null : finalizarVenda,
-                      child: const Text(
-                        "FINALIZAR VENDA", 
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)
-                      ),
+                      child: const Text("FINALIZAR VENDA", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
