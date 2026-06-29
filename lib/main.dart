@@ -388,31 +388,52 @@ class _TelaCaixaState extends State<TelaCaixa> {
               const Text("Forma de Pagamento:", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               
-              // Substituído o ChoiceChip por botões manuais infalíveis e limpos
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
-                  bool selecionado = formaPagamento == forma;
-                  return Expanded(
+                children: [
+                  Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: selecionado ? Colors.blue.shade700 : Colors.grey.shade200,
-                          foregroundColor: selecionado ? Colors.white : Colors.black87,
-                          elevation: selecionado ? 2 : 0,
+                          backgroundColor: formaPagamento == "Dinheiro" ? Colors.blue.shade700 : Colors.grey.shade200,
+                          foregroundColor: formaPagamento == "Dinheiro" ? Colors.white : Colors.black87,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
-                        onPressed: () {
-                          setState(() {
-                            formaPagamento = forma;
-                          });
-                        },
-                        child: Text(forma, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => setState(() => formaPagamento = "Dinheiro"),
+                        child: const Text("Dinheiro", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: formaPagamento == "Pix" ? Colors.blue.shade700 : Colors.grey.shade200,
+                          foregroundColor: formaPagamento == "Pix" ? Colors.white : Colors.black87,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => setState(() => formaPagamento = "Pix"),
+                        child: const Text("Pix", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: formaPagamento == "Cartão" ? Colors.blue.shade700 : Colors.grey.shade200,
+                          foregroundColor: formaPagamento == "Cartão" ? Colors.white : Colors.black87,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => setState(() => formaPagamento = "Cartão"),
+                        child: const Text("Cartão", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 16),
