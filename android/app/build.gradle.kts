@@ -2,48 +2,57 @@ import java.util.Properties
 
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
+
 if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use { localProperties.load(it) }
+    localPropertiesFile.inputStream().use {
+        localProperties.load(it)
+    }
 }
 
-val flutterRoot = localProperties.getProperty("flutter.sdk") ?: ""
-val flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
-val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0"
+val flutterVersionCode =
+    localProperties.getProperty("flutter.versionCode")?.toIntOrNull() ?: 1
+
+val flutterVersionName =
+    localProperties.getProperty("flutter.versionName") ?: "1.0"
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.example.caixa_pdv"
-    compileSdk = 34
+
+    compileSdk = flutter.compileSdkVersion
+
+    defaultConfig {
+        applicationId = "com.example.caixa_pdv"
+
+        minSdk = 21
+        targetSdk = flutter.targetSdkVersion
+
+        versionCode = flutterVersionCode
+        versionName = flutterVersionName
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    defaultConfig {
-        applicationId = "com.example.caixa_pdv"
-        minSdk = 21
-        targetSdk = 34
-        versionCode = flutterVersionCode.toInt()
-        versionName = flutterVersionName
+    kotlinOptions {
+        jvmTarget = "17"
     }
 
     buildTypes {
         release {
+            // Troque para sua chave de release quando for publicar.
             signingConfig = signingConfigs.getByName("debug")
-        }
-    }
-}
 
-// Configura o Java 17 para o Kotlin de forma compatível e sem usar termos depreciados
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 }
 
