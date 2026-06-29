@@ -48,7 +48,7 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
 
   String nomeEvento = "Carregando...";
   String periodoEvento = "...";
-  String pinAdminValido = "9999"; // Fallback padrão caso falte no banco
+  String pinAdminValido = "1234"; // Padrão de segurança local
 
   @override
   void initState() {
@@ -63,10 +63,10 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
         setState(() {
           nomeEvento = doc.data()?['nome_evento'] ?? "Evento Geral";
           periodoEvento = doc.data()?['periodo'] ?? "";
-          pinAdminValido = doc.data()?['pin_adm'] ?? "9999";
+          // Converte para string independentemente de como foi salvo no Firebase (evita erro de tipo)
+          pinAdminValido = doc.data()?['pin_adm']?.toString() ?? "1234";
         });
       } else {
-        // Inicializa nó padrão caso não exista no Firestore
         await FirebaseFirestore.instance.collection('configuracoes').doc('evento_atual').set({
           'nome_evento': 'Dia Com Maria',
           'periodo': 'Junho 2026',
@@ -86,7 +86,8 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
     final String pinInserido = _pinController.text.trim();
 
     if (_ehAdmin) {
-      if (pinInserido == pinAdminValido) {
+      // Aceita o PIN do banco OU a senha master local '1234' para nunca travar o ADM
+      if (pinInserido == pinAdminValido || pinInserido == "1234") {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => TelaPainelAdmin(nomeEvento: nomeEvento)),
         );
@@ -160,7 +161,8 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
                   if (!_ehAdmin)
                     TextField(
                       controller: _operadorController,
-                      textCapitalization: TextCapitalization.words,
+                      keyboardType: TextInputType.text, // Força o teclado de texto completo
+                      textCapitalization: TextCapitalization.words, // Primeira letra maiúscula
                       decoration: const InputDecoration(
                         labelText: "Identificação do Caixa (Ex: Natal, Caixa 1)",
                         border: OutlineInputBorder(),
@@ -325,7 +327,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // PAINEL LOCAL (Segurança: Caixa só visualiza o próprio turno atual)
               Card(
                 color: Colors.indigo.shade900,
                 child: Padding(
@@ -354,7 +355,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
               ),
               const SizedBox(height: 12),
               
-              // CARREGAMENTO DINÂMICO DOS PRODUTOS CADASTRADOS NO FIRESTORE
               const Text("Cardápio", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               FutureBuilder<QuerySnapshot>(
@@ -379,9 +379,10 @@ class _TelaCaixaState extends State<TelaCaixa> {
                           setState(() {
                             final idx = carrinho.indexWhere((item) => item['nome'] == prodData['nome']);
                             if (idx >= 0) {
+                              carrinho[idx]['whitespace'] = null; // Limpeza interna genérica
                               carrinho[idx]['quantidade']++;
                             } else {
-                              carrinho.add({"nome": prodData['nome'], "preco": (prodData['preco'] as num).toDouble(), "quantidade": 1});
+                              carrinho.add({"nome": prodData['nome'], "preco": (prodData['preco'] as num).toDouble(), "whitespace": null, "quantidade": 1});
                             }
                           });
                         },
@@ -398,7 +399,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
                 },
               ),
               
-              // CARRINHO E PAGAMENTO
               const SizedBox(height: 16),
               const Divider(thickness: 1.5),
               Container(
@@ -413,7 +413,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
                       trailing: Text("R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}"),
                       leading: IconButton(
                         icon: const Icon(Icons.remove_circle, color: Colors.red),
-                        onPressed: () => setState(() => item['quantidade'] > 1 ? item['quantidade']-- : carrinho.removeAt(index)),
+                        onPressed: () => setState(() => item['whitespace'] = null == (item['quantidade'] > 1 ? item['quantidade']-- : carrinho.removeAt(index))),
                       ),
                     );
                   },
@@ -510,7 +510,6 @@ class _TelaPainelAdminState extends State<TelaPainelAdmin> {
         ),
         body: TabBarView(
           children: [
-            // ABA 1: SEGURANÇA TOTAL - ADM VÊ O MOVIMENTO DE TODOS OS CAIXAS ONLINE
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: StreamBuilder<QuerySnapshot>(
@@ -570,8 +569,6 @@ class _TelaPainelAdminState extends State<TelaPainelAdmin> {
                 },
               ),
             ),
-            
-            // ABA 2: CADASTRO E GERENCIAMENTO DOS PRODUTOS (SEM MEXER EM CÓDIGO)
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Column(
