@@ -20,7 +20,6 @@ plugins {
 android {
     namespace "com.example.caixa_pdv"
     compileSdkVersion 33
-    ndkVersion flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
