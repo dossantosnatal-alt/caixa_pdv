@@ -145,7 +145,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
   List<Map<String, dynamic>> carrinho = [];
   String formaPagamento = "Dinheiro";
   
-  // 🧮 VARIÁVEIS DE TOTALIZAÇÃO LOCAL (Substituem o StreamBuilder travado)
   double acumuladoVendasLocal = 0.0;
   double acumuladoSangriasLocal = 0.0;
 
@@ -175,7 +174,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
     final double valorVendaAtual = totalPedido;
 
-    // Atualiza a interface LOCAL instantaneamente (independe da internet/Firebase)
     setState(() {
       acumuladoVendasLocal += valorVendaAtual;
     });
@@ -196,7 +194,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
         }).toList(),
       };
 
-      // Tenta enviar para o Firebase de forma assíncrona (não trava a tela)
       FirebaseFirestore.instance.collection('vendas').add(dadosVenda).catchError((err) {
         print("Erro em background: $err");
       });
@@ -223,7 +220,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
       return;
     }
 
-    // Atualiza o saldo local de sangrias imediatamente
     setState(() {
       acumuladoSangriasLocal += valor;
     });
@@ -285,7 +281,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   @override
   Widget build(BuildContext context) {
-    // Calcula o saldo atual baseado na memória local estável
     double saldoAtualLocal = acumuladoVendasLocal - acumuladoSangriasLocal;
 
     return Scaffold(
@@ -313,9 +308,9 @@ class _TelaCaixaState extends State<TelaCaixa> {
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
-            cross         : CrossAxisAlignment.start,
+            // Corrigido aqui: De 'cross' para 'crossAxisAlignment'
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 📊 PAINEL DE SALDO LOCAL (100% à prova de travamentos)
               Card(
                 color: Colors.blue.shade900,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
