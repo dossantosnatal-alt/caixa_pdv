@@ -38,9 +38,9 @@ class MyApp extends StatelessWidget {
             );
           }
           if (snapshot.hasData) {
-            return TelaCaixa(); // Removido o 'const' que gerava o conflito
+            return TelaCaixa();
           }
-          return TelaLogin(); // Removido o 'const' que gerava o conflito
+          return TelaLogin();
         },
       ),
     );
@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
 
 // --- TELA DE LOGIN ---
 class TelaLogin extends StatefulWidget {
-  TelaLogin({Key? key}) : super(key: key); // Ajustado o construtor
+  TelaLogin({Key? key}) : super(key: key);
 
   @override
   _TelaLoginState createState() => _TelaLoginState();
@@ -148,7 +148,7 @@ class _TelaLoginState extends State<TelaLogin> {
 
 // --- TELA DO CAIXA ---
 class TelaCaixa extends StatefulWidget {
-  TelaCaixa({Key? key}) : super(key: key); // Ajustado o construtor
+  TelaCaixa({Key? key}) : super(key: key);
 
   @override
   _TelaCaixaState createState() => _TelaCaixaState();
@@ -386,24 +386,31 @@ class _TelaCaixaState extends State<TelaCaixa> {
               
               const SizedBox(height: 12),
               const Text("Forma de Pagamento:", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               
+              // Substituído o ChoiceChip por botões manuais infalíveis e limpos
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
-                  return ChoiceChip(
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(forma),
+                  bool selecionado = formaPagamento == forma;
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selecionado ? Colors.blue.shade700 : Colors.grey.shade200,
+                          foregroundColor: selecionado ? Colors.white : Colors.black87,
+                          elevation: selecionado ? 2 : 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            formaPagamento = forma;
+                          });
+                        },
+                        child: Text(forma, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
                     ),
-                    selected: formaPagamento == forma,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() {
-                          formaPagamento = forma;
-                        });
-                      }
-                    },
                   );
                 }).toList(),
               ),
