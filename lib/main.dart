@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PDV Multi-Eventos',
+      title: 'PDV Autenticado Dinamico',
       theme: ThemeData(
         primarySwatch: Colors.indigo,
         useMaterial3: false,
@@ -32,7 +33,7 @@ class MyApp extends StatelessWidget {
 }
 
 // =============================================================================
-// 1. TELA DE IDENTIFICAÇÃO E SEGURANÇA (ADM vs CAIXA)
+// 1. TELA DE LOGIN E VALIDAÇÃO DE PERFIL VIA FIRESTORE
 // =============================================================================
 class TelaIdentificacao extends StatefulWidget {
   const TelaIdentificacao({Key? key}) : super(key: key);
@@ -42,13 +43,12 @@ class TelaIdentificacao extends StatefulWidget {
 }
 
 class _TelaIdentificacaoState extends State<TelaIdentificacao> {
-  final TextEditingController _operadorController = TextEditingController();
-  final TextEditingController _pinController = TextEditingController();
-  bool _ehAdmin = false;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _senhaController = TextEditingController();
+  bool _carregando = false;
 
   String nomeEvento = "Carregando...";
   String periodoEvento = "...";
-  String pinAdminValido = "1234"; // Padrão de segurança local
 
   @override
   void initState() {
@@ -63,54 +63,102 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
         setState(() {
           nomeEvento = doc.data()?['nome_evento'] ?? "Evento Geral";
           periodoEvento = doc.data()?['periodo'] ?? "";
-          // Converte para string independentemente de como foi salvo no Firebase (evita erro de tipo)
-          pinAdminValido = doc.data()?['pin_adm']?.toString() ?? "1234";
         });
       } else {
-        await FirebaseFirestore.instance.collection('configuracoes').doc('evento_atual').set({
-          'nome_evento': 'Dia Com Maria',
-          'periodo': 'Junho 2026',
-          'pin_adm': '1234'
+        setState(() {
+          nomeEvento = "Dia Com Maria";
         });
-        _buscarConfiguracoesEvento();
       }
     } catch (e) {
       setState(() {
-        nomeEvento = "Modo Offline Local";
+        nomeEvento = "Modo Conectado";
       });
     }
   }
 
-  void _entrarNoApp() {
-    final String nome = _operadorController.text.trim();
-    final String pinInserido = _pinController.text.trim();
+  void _realizarLogin() async {
+    final String email = _emailController.text.trim().toLowerCase();
+    final String senha = _senhaController.text.trim();
 
-    if (_ehAdmin) {
-      // Aceita o PIN do banco OU a senha master local '1234' para nunca travar o ADM
-      if (pinInserido == pinAdminValido || pinInserido == "1234") {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => TelaPainelAdmin(nomeEvento: nomeEvento)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PIN Administrativo incorreto!'), backgroundColor: Colors.red),
-        );
-      }
-    } else {
-      if (nome.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Informe o nome do operador/caixa.'), backgroundColor: Colors.orange),
-        );
-        return;
-      }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => TelaCaixa(
-            nomeOperador: nome,
-            nomeEvento: nomeEvento,
-          ),
-        ),
+    if (email.isEmpty || senha.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, preencha e-mail e senha.'), backgroundColor: Colors.orange),
       );
+      return;
+    }
+
+    setState(() => _carregando = true);
+
+    try {
+      // 1. Autentica o usuário com o Firebase Auth
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: senha,
+      );
+
+      User? usuarioLogado = userCredential.user;
+
+      if (usuarioLogado != null) {
+        // 2. Busca o perfil e o status do usuário na coleção 'usuarios' do Firestore
+        var userDoc = await FirebaseFirestore.instance.collection('usuarios').doc(email).get();
+
+        String perfil = 'caixa'; // Perfil padrão caso não esteja configurado
+        bool ativo = true;
+
+        if (userDoc.exists) {
+          perfil = userDoc.data()?['perfil'] ?? 'caixa';
+          ativo = userDoc.data()?['ativo'] ?? true;
+        } else {
+          // Se o usuário existe no Auth mas não no banco, cria o registro inicial como caixa ativo
+          await FirebaseFirestore.instance.collection('usuarios').doc(email).set({
+            'perfil': 'caixa',
+            'ativo': true,
+          });
+        }
+
+        // 3. Verifica se o acesso está bloqueado
+        if (!ativo) {
+          await FirebaseAuth.instance.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Seu acesso a este evento foi suspenso!'), backgroundColor: Colors.red),
+          );
+          return;
+        }
+
+        // 4. Redireciona com base no perfil vindo do Banco de Dados
+        if (perfil == 'admin') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => TelaPainelAdmin(nomeEvento: nomeEvento)),
+          );
+        } else {
+          String nomeExibicao = email.split('@')[0].toUpperCase();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => TelaCaixa(
+                nomeOperador: nomeExibicao,
+                nomeEvento: nomeEvento,
+              ),
+            ),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String mensagemErro = "Erro ao autenticar. Verifique os dados.";
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        mensagemErro = "E-mail ou senha incorretos!";
+      } else if (e.code == 'user-disabled') {
+        mensagemErro = "Este login foi desativado no Firebase!";
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(mensagemErro), backgroundColor: Colors.red),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erro inesperado: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _carregando = false);
     }
   }
 
@@ -129,7 +177,7 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.layers, size: 54, color: Colors.indigo.shade700),
+                  Icon(Icons.lock_person, size: 54, color: Colors.indigo.shade700),
                   const SizedBox(height: 12),
                   Text(
                     nomeEvento,
@@ -140,54 +188,42 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
                     Text(periodoEvento, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                   const Divider(height: 32),
                   
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ChoiceChip(
-                        label: const Text("Operador de Caixa"),
-                        selected: !_ehAdmin,
-                        onSelected: (val) => setState(() => _ehAdmin = !val),
-                      ),
-                      const SizedBox(width: 12),
-                      ChoiceChip(
-                        label: const Text("Administrador"),
-                        selected: _ehAdmin,
-                        onSelected: (val) => setState(() => _ehAdmin = val),
-                      ),
-                    ],
+                  const Text(
+                    "LOGIN RESTRITO",
+                    style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.grey),
                   ),
                   const SizedBox(height: 20),
 
-                  if (!_ehAdmin)
-                    TextField(
-                      controller: _operadorController,
-                      keyboardType: TextInputType.text, // Força o teclado de texto completo
-                      textCapitalization: TextCapitalization.words, // Primeira letra maiúscula
-                      decoration: const InputDecoration(
-                        labelText: "Identificação do Caixa (Ex: Natal, Caixa 1)",
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.person),
-                      ),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: "E-mail Cadastrado",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
                     ),
-                  if (_ehAdmin)
-                    TextField(
-                      controller: _pinController,
-                      keyboardType: TextInputType.number,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: "PIN de Acesso ADM",
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.lock),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _senhaController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: "Senha de Acesso",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.key),
                     ),
+                  ),
                   const SizedBox(height: 24),
+                  
                   SizedBox(
                     width: double.infinity,
                     height: 48,
                     child: ElevatedButton(
-                      onPressed: _entrarNoApp,
+                      onPressed: _carregando ? null : _realizarLogin,
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo.shade700),
-                      child: Text(_ehAdmin ? "ACESSAR PAINEL ADM" : "ABRIR FRENTE DE CAIXA"),
+                      child: _carregando 
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text("ENTRAR NO SISTEMA", style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -201,7 +237,7 @@ class _TelaIdentificacaoState extends State<TelaIdentificacao> {
 }
 
 // =============================================================================
-// 2. FRENTE DE CAIXA (PRODUTOS DINÂMICOS DO FIRESTORE)
+// 2. FRENTE DE CAIXA OPERACIONAL (FLEXIBLE ADICIONADO CONTRA TELA CINZA)
 // =============================================================================
 class TelaCaixa extends StatefulWidget {
   final String nomeOperador;
@@ -315,58 +351,61 @@ class _TelaCaixaState extends State<TelaCaixa> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const TelaIdentificacao()),
-            ),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const TelaIdentificacao()),
+              );
+            },
           )
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Card(
-                color: Colors.indigo.shade900,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Operador: ${widget.nomeOperador}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          const Icon(Icons.lock_outline, color: Colors.white70, size: 16),
-                        ],
-                      ),
-                      const Divider(color: Colors.white24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Text("Vendas: R\$ ${acumuladoVendasLocal.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent)),
-                          Text("Sangrias: R\$ ${acumuladoSangriasLocal.toStringAsFixed(2)}", style: const TextStyle(color: Colors.redAccent)),
-                          Text("Saldo: R\$ ${(acumuladoVendasLocal - acumuladoSangriasLocal).toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ],
-                  ),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              color: Colors.indigo.shade900,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Operador: ${widget.nomeOperador}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.verified_user, color: Colors.greenAccent, size: 16),
+                      ],
+                    ),
+                    const Divider(color: Colors.white24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text("Vendas: R\$ ${acumuladoVendasLocal.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent)),
+                        Text("Sangrias: R\$ ${acumuladoSangriasLocal.toStringAsFixed(2)}", style: const TextStyle(color: Colors.redAccent)),
+                        Text("Saldo: R\$ ${(acumuladoVendasLocal - acumuladoSangriasLocal).toStringAsFixed(2)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              
-              const Text("Cardápio", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              FutureBuilder<QuerySnapshot>(
+            ),
+            const SizedBox(height: 12),
+            const Text("Cardápio", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            
+            Flexible(
+              flex: 3,
+              child: FutureBuilder<QuerySnapshot>(
                 future: FirebaseFirestore.instance.collection('produtos').where('ativo', isEqualTo: true).get(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                   var docs = snapshot.data!.docs;
-                  if (docs.isEmpty) return const Text("Nenhum produto cadastrado no painel.");
+                  if (docs.isEmpty) return const Text("Nenhum produto ativo cadastrado.");
 
                   return GridView.builder(
                     shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3, childAspectRatio: 1.2, crossAxisSpacing: 6, mainAxisSpacing: 6,
                     ),
@@ -379,10 +418,9 @@ class _TelaCaixaState extends State<TelaCaixa> {
                           setState(() {
                             final idx = carrinho.indexWhere((item) => item['nome'] == prodData['nome']);
                             if (idx >= 0) {
-                              carrinho[idx]['whitespace'] = null; // Limpeza interna genérica
                               carrinho[idx]['quantidade']++;
                             } else {
-                              carrinho.add({"nome": prodData['nome'], "preco": (prodData['preco'] as num).toDouble(), "whitespace": null, "quantidade": 1});
+                              carrinho.add({"nome": prodData['nome'], "preco": (prodData['preco'] as num).toDouble(), "quantidade": 1});
                             }
                           });
                         },
@@ -398,55 +436,72 @@ class _TelaCaixaState extends State<TelaCaixa> {
                   );
                 },
               ),
-              
-              const SizedBox(height: 16),
-              const Divider(thickness: 1.5),
-              Container(
-                height: 120,
-                color: Colors.grey.shade50,
+            ),
+            
+            const SizedBox(height: 12),
+            const Divider(thickness: 1.5),
+            
+            Flexible(
+              flex: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
                 child: ListView.builder(
+                  shrinkWrap: true,
                   itemCount: carrinho.length,
                   itemBuilder: (context, index) {
                     final item = carrinho[index];
                     return ListTile(
+                      dense: true,
                       title: Text("${item['nome']} (x${item['quantidade']})"),
                       trailing: Text("R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}"),
                       leading: IconButton(
                         icon: const Icon(Icons.remove_circle, color: Colors.red),
-                        onPressed: () => setState(() => item['whitespace'] = null == (item['quantidade'] > 1 ? item['quantidade']-- : carrinho.removeAt(index))),
+                        onPressed: () {
+                          setState(() {
+                            if (item['quantidade'] > 1) {
+                              item['quantidade']--;
+                            } else {
+                              carrinho.removeAt(index);
+                            }
+                          });
+                        },
                       ),
                     );
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("TOTAL:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text("R\$ ${totalPedido.toStringAsFixed(2)}", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
-                  ],
-                ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("TOTAL:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text("R\$ ${totalPedido.toStringAsFixed(2)}", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
+                ],
               ),
-              DropdownButton<String>(
-                value: formaPagamento,
-                isExpanded: true,
-                items: ["Dinheiro", "Pix", "Cartão"].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (val) => setState(() => formaPagamento = val!),
+            ),
+            DropdownButton<String>(
+              value: formaPagamento,
+              isExpanded: true,
+              items: ["Dinheiro", "Pix", "Cartão"].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (val) => setState(() => formaPagamento = val!),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                onPressed: carrinho.isEmpty ? null : finalizarVenda,
+                child: const Text("FINALIZAR VENDA", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  onPressed: carrinho.isEmpty ? null : finalizarVenda,
-                  child: const Text("FINALIZAR VENDA", style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              )
-            ],
-          ),
+            )
+          ],
         ),
       ),
     );
@@ -454,7 +509,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
 }
 
 // =============================================================================
-// 3. PAINEL ADMINISTRATIVO (CADASTROS E VISUALIZAÇÃO GLOBAL DE ACESSOS)
+// 3. PAINEL ADMINISTRATIVO GENERALIZADO (ESTÁVEL CONTRA ESTOURO)
 // =============================================================================
 class TelaPainelAdmin extends StatefulWidget {
   final String nomeEvento;
@@ -502,9 +557,12 @@ class _TelaPainelAdminState extends State<TelaPainelAdmin> {
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const TelaIdentificacao()),
-              ),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (context) => const TelaIdentificacao()),
+                );
+              },
             )
           ],
         ),
