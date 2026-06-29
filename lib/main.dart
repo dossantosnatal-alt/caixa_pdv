@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  try {
+    // Verifica se já existe uma instância ativa para evitar o erro "duplicate-app"
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  } catch (e) {
+    print("Erro ao inicializar Firebase: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -31,14 +42,24 @@ class TelaCaixa extends StatefulWidget {
 }
 
 class _TelaCaixaState extends State<TelaCaixa> {
-  // Lista oficial de produtos do evento
+  // Lista Oficial do Evento sincronizada com o seu Controle de Caixa
   final List<Map<String, dynamic>> produtos = [
-    {"nome": "Refrigerante", "preco": 8.00},
-    {"nome": "Agua sem gas", "preco": 3.00},
-    {"nome": "Agua com gas", "preco": 3.50},
-    {"nome": "Suco Del Valle", "preco": 8.00},
+    {"nome": "Cachorro Quente", "preco": 8.00},
+    {"nome": "Caldo de feijao", "preco": 12.00},
+    {"nome": "Canjicada", "preco": 10.00},
+    {"nome": "Canjiquinha", "preco": 12.00},
+    {"nome": "Mini Pizza", "preco": 8.00},
     {"nome": "Pastel", "preco": 8.00},
     {"nome": "Salgado assado", "preco": 8.00},
+    {"nome": "Bolo", "preco": 5.00},
+    {"nome": "Pipoca", "preco": 5.00},
+    {"nome": "Maçã do Amor", "preco": 10.00},
+    {"nome": "Refrigerante", "preco": 8.00},
+    {"nome": "Suco", "preco": 3.00},
+    {"nome": "Agua com gás", "preco": 4.00},
+    {"nome": "Agua sem gás", "preco": 3.00},
+    {"nome": "Quentão", "preco": 8.00},
+    {"nome": "Brincadeiras", "preco": 5.00},
   ];
 
   List<Map<String, dynamic>> carrinho = [];
@@ -105,18 +126,24 @@ class _TelaCaixaState extends State<TelaCaixa> {
         title: const Text("Controle de Caixa - Dia Com Maria"),
         backgroundColor: Colors.blue.shade700,
       ),
-      body: Column( // Alterado para Column para empilhar verticalmente
-        children: [
-          // PARTE DE CIMA: Grade de Produtos (3 colunas se ajusta melhor na vertical)
-          Expanded(
-            flex: 4, 
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(10.0),
-              child: GridView.builder(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Produtos Disponíveis",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+
+              // Grade de Produtos em formato vertical (3 colunas estável)
+              GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3, // 3 botões por linha na vertical     
+                  crossAxisCount: 3,     
                   childAspectRatio: 1.2, 
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
@@ -128,9 +155,10 @@ class _TelaCaixaState extends State<TelaCaixa> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade50,
                       foregroundColor: Colors.blue.shade900,
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.blue.shade200, width: 1.5),
+                        side: BorderSide(color: Colors.blue.shade200, width: 1.2),
                       ),
                     ),
                     onPressed: () => adicionarAoCarrinho(prod),
@@ -140,135 +168,135 @@ class _TelaCaixaState extends State<TelaCaixa> {
                         Text(
                           prod['nome'],
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           "R\$ ${prod['preco'].toStringAsFixed(2)}",
-                          style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                   );
                 },
               ),
-            ),
-          ),
 
-          // PARTE DE BAIXO: Carrinho e Botão de Finalizar
-          Expanded(
-            flex: 5,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                border: Border(top: BorderSide(color: Colors.grey.shade300, width: 2.0)),
+              const SizedBox(height: 16),
+              const Divider(thickness: 1.5),
+              const SizedBox(height: 8),
+
+              const Text(
+                "Itens do Pedido (Carrinho)",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Itens do Pedido",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const Divider(thickness: 1),
+              const SizedBox(height: 8),
 
-                  // LISTA DOS ITENS ADICIONADOS
-                  Expanded(
-                    child: carrinho.isEmpty
-                        ? const Center(
-                            child: Text(
-                              "Carrinho vazio",
-                              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+              // Container fixo para listagem do carrinho
+              Container(
+                height: 180, 
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: carrinho.isEmpty
+                    ? const Center(
+                        child: Text(
+                          "Nenhum item adicionado ao carrinho",
+                          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: carrinho.length,
+                        itemBuilder: (context, index) {
+                          final item = carrinho[index];
+                          return Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: ListTile(
+                              dense: true,
+                              title: Text(
+                                "${item['nome']} (x${item['quantidade']})",
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              trailing: Text(
+                                "R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}",
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              leading: IconButton(
+                                icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
+                                onPressed: () {
+                                  setState(() {
+                                    if (item['quantidade'] > 1) {
+                                      item['quantidade']--;
+                                    } else {
+                                      carrinho.removeAt(index);
+                                    }
+                                  });
+                                },
+                              ),
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: carrinho.length,
-                            itemBuilder: (context, index) {
-                              final item = carrinho[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 2),
-                                child: ListTile(
-                                  dense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                                  title: Text(
-                                    "${item['nome']} (x${item['quantidade']})",
-                                    style: const TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  trailing: Text(
-                                    "R\$ ${(item['preco'] * item['quantidade']).toStringAsFixed(2)}",
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  leading: IconButton(
-                                    icon: const Icon(Icons.remove_circle, color: Colors.red, size: 20),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (item['quantidade'] > 1) {
-                                          item['quantidade']--;
-                                        } else {
-                                          carrinho.removeAt(index);
-                                        }
-                                      });
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-
-                  const Divider(thickness: 1),
-                  
-                  // EXIBIÇÃO DO TOTAL
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("TOTAL:", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text(
-                        "R\$ ${totalPedido.toStringAsFixed(2)}",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // SELEÇÃO DE PAGAMENTO
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
-                      return ChoiceChip(
-                        label: Text(forma),
-                        selected: formaPagamento == forma,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              formaPagamento = forma;
-                            });
-                          }
+                          );
                         },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // BOTÃO PRINCIPAL
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: carrinho.isEmpty ? Colors.grey.shade400 : Colors.green,
-                        foregroundColor: Colors.white,
                       ),
-                      onPressed: carrinho.isEmpty ? null : finalizarVenda,
-                      child: const Text("FINALIZAR VENDA", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    ),
+              ),
+
+              const SizedBox(height: 16),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("TOTAL DO PEDIDO:", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(
+                    "R\$ ${totalPedido.toStringAsFixed(2)}",
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                   ),
                 ],
               ),
-            ),
+              
+              const SizedBox(height: 12),
+              const Text("Forma de Pagamento:", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: ["Dinheiro", "Pix", "Cartão"].map((forma) {
+                  return ChoiceChip(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(forma),
+                    ),
+                    selected: formaPagamento == forma,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() {
+                          formaPagamento = forma;
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 16),
+
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: carrinho.isEmpty ? Colors.grey.shade400 : Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: carrinho.isEmpty ? null : finalizarVenda,
+                  child: const Text("FINALIZAR VENDA", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
