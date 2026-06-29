@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
@@ -13,7 +12,6 @@ void main() async {
   } catch (e) {
     print("Erro ao inicializar Firebase: $e");
   }
-
   runApp(const MyApp());
 }
 
@@ -47,7 +45,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// --- TELA DE LOGIN ---
 class TelaLogin extends StatefulWidget {
   TelaLogin({Key? key}) : super(key: key);
 
@@ -146,7 +143,6 @@ class _TelaLoginState extends State<TelaLogin> {
   }
 }
 
-// --- TELA DO CAIXA ---
 class TelaCaixa extends StatefulWidget {
   TelaCaixa({Key? key}) : super(key: key);
 
@@ -198,7 +194,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
 
   void finalizarVenda() async {
     if (carrinho.isEmpty) return;
-
     final User? usuarioAtual = FirebaseAuth.instance.currentUser;
     final String emailOperador = usuarioAtual?.email ?? "Desconhecido";
 
@@ -268,7 +263,6 @@ class _TelaCaixaState extends State<TelaCaixa> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -312,17 +306,14 @@ class _TelaCaixaState extends State<TelaCaixa> {
                   );
                 },
               ),
-
               const SizedBox(height: 16),
               const Divider(thickness: 1.5),
               const SizedBox(height: 8),
-
               const Text(
                 "Itens do Pedido (Carrinho)",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-
               Container(
                 height: 180, 
                 decoration: BoxDecoration(
@@ -370,9 +361,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
                         },
                       ),
               ),
-
               const SizedBox(height: 16),
-              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -383,11 +372,9 @@ class _TelaCaixaState extends State<TelaCaixa> {
                   ),
                 ],
               ),
-              
               const SizedBox(height: 12),
               const Text("Forma de Pagamento:", style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -435,9 +422,7 @@ class _TelaCaixaState extends State<TelaCaixa> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
               SizedBox(
                 width: double.infinity,
                 height: 48,
