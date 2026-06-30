@@ -1,0 +1,78 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class FirestoreService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // 1. Validar Usuário / Login (Verifica se o usuário existe na coleção 'usuarios')
+  Future<bool> validarUsuario(String email, String senha) async {
+    try {
+      final query = await _db
+          .collection('usuarios')
+          .where('email', isEqualTo: email)
+          .where('senha', isEqualTo: senha)
+          .get();
+
+      return query.docs.isNotEmpty;
+    } catch (e) {
+      print('Erro ao validar usuário: $e');
+      return false;
+    }
+  }
+
+  // 2. Buscar Produtos (Retorna uma lista para uso direto ou busca pontual)
+  Future<List<Map<String, dynamic>>> obterProdutos() async {
+    try {
+      final snapshot = await _db.collection('produtos').orderBy('nome').get();
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'nome': data['nome'] ?? '',
+          'preco': (data['preco'] as num?)?.toDouble() ?? 0.0,
+        };
+      }).toList();
+    } catch (e) {
+      print('Erro ao buscar produtos: $e');
+      return [];
+    }
+  }
+
+  // 3. Salvar Venda (Registra a transação e esvazia o carrinho)
+  Future<void> salvarVenda(double total, List<Map<String, dynamic>> itens) async {
+    try {
+      await _db.collection('vendas').add({
+        'total': total,
+        'itens': itens,
+        'data': FieldValue.serverTimestamp(), // Padrão nativo do Firestore para registrar o horário do servidor
+      });
+    } catch (e) {
+      print('Erro ao salvar venda no Firestore: $e');
+      throw Exception('Não foi possível concluir a transação no banco.');
+    }
+  }
+
+  // 4. Salvar Fechamento de Caixa Diário
+  Future<void> salvarFechamentoCaixa({
+    required double saldoInicial,
+    required double outrasEntradas,
+    required double sangrias,
+    required double totalVendido,
+    required double dinheiroContado,
+    required double diferenca,
+  }) async {
+    try {
+      await _db.collection('fechamentos_caixa').add({
+        'data': FieldValue.serverTimestamp(),
+        'saldo_inicial': saldoInicial,
+        'outras_entradas': outrasEntradas,
+        'sangrias': sangrias,
+        'total_vendido_sistema': totalVendido,
+        'dinheiro_fisico_gaveta': dinheiroContado,
+        'diferenca_quebra_sobra': diferenca,
+      });
+    } catch (e) {
+      print('Erro ao salvar fechamento: $e');
+      throw Exception('Não foi possível salvar o fechamento de caixa.');
+    }
+  }
+}

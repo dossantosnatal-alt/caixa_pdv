@@ -1,0 +1,48 @@
+name: Compilar APK (Release)
+
+on:
+  push:
+    branches:
+      - main  # Altere para master se sua branch principal for master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+
+      - name: Configurar Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Garantir suporte ao Android
+        run: flutter create --platforms=android .
+
+      # PASSO NOVO: Cria o arquivo do Firebase de forma segura usando o GitHub Secret
+      - name: Injetar Google Services JSON
+        run: |
+          mkdir -p android/app
+          echo "${{ secrets.FIREBASE_ANDROID_JSON }}" > android/app/google-services.json
+
+      - name: Compilar APK
+        run: flutter build apk --release
+
+      - name: Upload do APK como Artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
