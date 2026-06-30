@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
+<<<<<<< HEAD
         android:label="caixa_pdv"
+=======
+        android:label="Controle de Caixa-Dia com Maria"
+>>>>>>> 5f33b952f513e202af05fcbe9a2199b5687e0803
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
