@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1030821394632",
+    "project_id": "caixa---dia-com-maria",
+    "storage_bucket": "caixa---dia-com-maria.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030821394632:android:839df94a11b722ee1dcdfd",
+        "android_client_info": {
+          "package_name": "com.example.caixa_pdv"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1030821394632-5apt8ugavre8i774lngdtubkqe0fjve0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwjMv1Jkg1cYmQSLo0WCAfnR-zu-npQSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1030821394632-5apt8ugavre8i774lngdtubkqe0fjve0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1030821394632-1g6bfsc6jpjccb4etjh5qaram0gcrlu1.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.caixaPdv"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

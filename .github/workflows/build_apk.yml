@@ -1,49 +1,37 @@
-name: Compilar APK (Release)
+name: Gerar APK do Projeto
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - main # ou o nome da sua branch principal (ex: master)
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do código
+      - name: Baixar o código do repositório
         uses: actions/checkout@v3
 
-      - name: Configurar Java
+      - name: Configurar o Java (JDK)
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Configurar Flutter
+      - name: Configurar o Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-          cache: true
+          flutter-version: '3.22.x' # Ajusta para a versão aproximada do seu Flutter
 
-      - name: Instalar dependências
+      - name: Instalar Dependências
         run: flutter pub get
 
-      - name: Garantir suporte ao Android
-        run: flutter create --platforms=android .
-
-      - name: Injetar Google Services JSON
-        run: |
-          mkdir -p android/app
-          cat << 'EOF' > android/app/google-services.json
-          ${{ secrets.FIREBASE_ANDROID_JSON }}
-          EOF
-
-      - name: Compilar APK
+      - name: Gerar o APK de Release
         run: flutter build apk --release
 
-      - name: Upload do APK como Artefato
-        uses: actions/upload-artifact@v4
+      - name: Disponibilizar o APK para Download
+        uses: actions/upload-artifact@v3
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk

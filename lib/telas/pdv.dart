@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Modelo simples para controlar o carrinho localmente nesta tela
 class ItemCarrinho {
   final String id;
   final String nome;
@@ -17,7 +16,7 @@ class ItemCarrinho {
 }
 
 class TelaPDV extends StatefulWidget {
-  final String caixaId; // Recebe o ID do caixa aberto para acumular as vendas
+  final String caixaId;
 
   const TelaPDV({super.key, required this.caixaId});
 
@@ -28,7 +27,6 @@ class TelaPDV extends StatefulWidget {
 class _TelaPDVState extends State<TelaPDV> {
   final List<ItemCarrinho> _carrinho = [];
 
-  // Calcula o valor total atual do carrinho
   double get _totalGeral => _carrinho.fold(0.0, (sum, item) => sum + (item.preco * item.quantidade));
 
   void _adicionarAoCarrinho(String id, String nome, double preco) {
@@ -42,7 +40,6 @@ class _TelaPDVState extends State<TelaPDV> {
     });
   }
 
-  // CORRIGIDO: Removido caractere especial 'ç' do parâmetro
   void _alterarQuantidade(int index, int mudanca) {
     setState(() {
       _carrinho[index].quantidade += mudanca;
@@ -52,7 +49,6 @@ class _TelaPDVState extends State<TelaPDV> {
     });
   }
 
-  // Abre a caixa de diálogo para escolher a forma de pagamento e encerrar a venda
   void _abrirModalPagamento() {
     if (_carrinho.isEmpty) {
       _mostrarMensagem('O carrinho está vazio!', Colors.orange);
@@ -99,11 +95,9 @@ class _TelaPDVState extends State<TelaPDV> {
     );
   }
 
-  // Executa a baixa de estoque e envia o faturamento para o caixa ativo
   Future<void> _processarVenda(BuildContext dialogContext, String formaPagamento, String campoCaixa) async {
-    Navigator.pop(dialogContext); // Fecha o modal de pagamento de imediato
+    Navigator.pop(dialogContext);
     
-    // Armazena o valor a ser processado e limpa o carrinho na UI para dar feedback rápido de clique único
     final double valorVenda = _totalGeral;
     final List<ItemCarrinho> itensProcessando = List.from(_carrinho);
     
@@ -115,7 +109,6 @@ class _TelaPDVState extends State<TelaPDV> {
     final batch = firestore.batch();
 
     try {
-      // 1. Atualiza o estoque de cada produto vendido no lote (Batch)
       for (var item in itensProcessando) {
         final prodRef = firestore.collection('produtos').doc(item.id);
         batch.update(prodRef, {
@@ -123,13 +116,11 @@ class _TelaPDVState extends State<TelaPDV> {
         });
       }
 
-      // 2. Acumula os valores faturados dentro do Caixa Diário do operador
       final caixaRef = firestore.collection('caixas').doc(widget.caixaId);
       batch.update(caixaRef, {
         campoCaixa: FieldValue.increment(valorVenda),
       });
 
-      // 3. Salva o registro histórico da venda independente
       final vendaNovaRef = firestore.collection('vendas').doc();
       batch.set(vendaNovaRef, {
         'caixa_id': widget.caixaId,
@@ -144,7 +135,6 @@ class _TelaPDVState extends State<TelaPDV> {
         }).toList(),
       });
 
-      // Executa de forma atômica no servidor
       await batch.commit();
       _mostrarMensagem('Venda em $formaPagamento realizada com sucesso!', Colors.green);
     } catch (e) {
@@ -167,93 +157,103 @@ class _TelaPDVState extends State<TelaPDV> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
-      body: Row(
-        children: [
-          // LADO ESQUERDO: Grade de seleção de produtos da loja
-          Expanded(
-            flex: 3,
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('produtos').snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('Nenhum produto em estoque encontrado.'));
-                }
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Se a tela for larga (Web/Tablet), coloca carrinho na lateral direita
+          // Se for estreita (Celular), coloca o carrinho embaixo
+          bool telaLarga = constraints.maxWidth > 700;
 
-                final produtos = snapshot.data!.docs;
+          Widget secaoProdutos = StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('produtos').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(child: Text('Nenhum produto encontrado.'));
+              }
 
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 1.3,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: produtos.length,
-                  itemBuilder: (context, index) {
-                    var prodData = produtos[index].data() as Map<String, dynamic>;
-                    String id = produtos[index].id;
-                    String nome = prodData['nome'] ?? 'Sem nome';
-                    double preco = (prodData['preco'] ?? 0.0).toDouble();
-                    int estoque = (prodData['estoque'] ?? 0).toInt();
+              final produtos = snapshot.data!.docs;
 
-                    bool temEstoque = estoque > 0;
+              return GridView.builder(
+                padding: const EdgeInsets.all(12),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: telaLarga ? 4 : 2, // 4 colunas na web, 2 no celular
+                  childAspectRatio: 1.1, // Formato mais quadrado e equilibrado
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: produtos.length,
+                itemBuilder: (context, index) {
+                  var prodData = produtos[index].data() as Map<String, dynamic>;
+                  String id = produtos[index].id;
+                  String nome = prodData['nome'] ?? 'Sem nome';
+                  
+                  // Garantindo que tipos numéricos do Firestore sejam lidos corretamente
+                  double preco = 0.0;
+                  if (prodData['preco'] != null) {
+                    preco = (prodData['preco'] is int) 
+                        ? (prodData['preco'] as int).toDouble() 
+                        : (prodData['preco'] as double);
+                  }
 
-                    return Card(
-                      color: temEstoque ? Colors.white : Colors.grey.shade200,
-                      elevation: 3,
-                      child: InkWell(
-                        onTap: temEstoque ? () => _adicionarAoCarrinho(id, nome, preco) : null,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                nome,
-                                style: TextStyle(
-                                  fontSize: 16, 
-                                  fontWeight: FontWeight.bold,
-                                  color: temEstoque ? Colors.black : Colors.grey,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                  int estoque = 0;
+                  if (prodData['estoque'] != null) {
+                    estoque = (prodData['estoque'] as num).toInt();
+                  }
+
+                  bool temEstoque = estoque > 0;
+
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    color: temEstoque ? Colors.white : Colors.grey.shade200,
+                    elevation: 3,
+                    child: InkWell(
+                      onTap: temEstoque ? () => _adicionarAoCarrinho(id, nome, preco) : null,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nome,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: temEstoque ? Colors.black87 : Colors.grey,
                               ),
-                              const Spacer(),
-                              Text(
-                                'R\$ ${preco.toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Spacer(),
+                            Text(
+                              'R\$ ${preco.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: 16, 
+                                color: temEstoque ? Colors.green.shade700 : Colors.grey, 
+                                fontWeight: FontWeight.bold
                               ),
-                              Text(
-                                temEstoque ? 'Disponível: $estoque' : 'Esgotado',
-                                style: TextStyle(
-                                  fontSize: 12, 
-                                  color: temEstoque ? Colors.grey.shade600 : Colors.red,
-                                  fontWeight: FontWeight.bold
-                                ),
-                              )
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              temEstoque ? 'Estoque: $estoque' : 'Esgotado',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: temEstoque ? Colors.blueGrey : Colors.red,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
 
-          // DIVISÓRIA VISUAL
-          VerticalDivider(width: 1, color: Colors.grey.shade400),
-
-          // LADO DIREITO: Carrinho Operacional com Checkout
-          Container(
-            width: 400,
+          Widget secaoCarrinho = Container(
             color: Colors.grey.shade50,
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -263,15 +263,13 @@ class _TelaPDVState extends State<TelaPDV> {
                   children: [
                     Icon(Icons.shopping_basket, color: Colors.indigo),
                     SizedBox(width: 8),
-                    Text('Carrinho Atual', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text('Carrinho Atual', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                const SizedBox(height: 12),
-                
-                // Lista de Itens Comprados
+                const SizedBox(height: 8),
                 Expanded(
                   child: _carrinho.isEmpty
-                      ? const Center(child: Text('Selecione produtos ao lado', style: TextStyle(color: Colors.grey)))
+                      ? const Center(child: Text('Selecione os produtos', style: TextStyle(color: Colors.grey)))
                       : ListView.builder(
                           itemCount: _carrinho.length,
                           itemBuilder: (context, index) {
@@ -280,8 +278,9 @@ class _TelaPDVState extends State<TelaPDV> {
                               elevation: 1,
                               margin: const EdgeInsets.symmetric(vertical: 4),
                               child: ListTile(
-                                title: Text(item.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text('un: R\$ ${item.preco.toStringAsFixed(2)} | Sub: R\$ ${(item.preco * item.quantidade).toStringAsFixed(2)}'),
+                                dense: true,
+                                title: Text(item.nome, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('un: R\$ ${item.preco.toStringAsFixed(2)} | Total: R\$ ${(item.preco * item.quantidade).toStringAsFixed(2)}'),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -289,10 +288,10 @@ class _TelaPDVState extends State<TelaPDV> {
                                       icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
                                       onPressed: () => _alterarQuantidade(index, -1),
                                     ),
-                                    Text('${item.quantidade}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                    Text('${item.quantidade}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                                     IconButton(
                                       icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                                      onPressed: () => _alterarQuantidade(index, 1),
+                                      onPressed: () => _adicionarAoCarrinho(item.id, item.nome, item.preco),
                                     ),
                                   ],
                                 ),
@@ -302,36 +301,52 @@ class _TelaPDVState extends State<TelaPDV> {
                         ),
                 ),
                 const Divider(),
-
-                // Painel de Total e Fechamento de Cupom
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const Text('TOTAL:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       Text(
                         'R\$ ${_totalGeral.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo),
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
                       ),
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.check),
-                  label: const Text('FINALIZAR VENDA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: _carrinho.isEmpty ? null : _abrirModalPagamento,
+                  child: const Text('FINALIZAR VENDA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-          )
-        ],
+          );
+
+          // Retorno Responsivo Inteligente
+          if (telaLarga) {
+            return Row(
+              children: [
+                Expanded(flex: 3, child: secaoProdutos),
+                VerticalDivider(width: 1, color: Colors.grey.shade300),
+                SizedBox(width: 380, child: secaoCarrinho),
+              ],
+            );
+          } else {
+            return Column(
+              children: [
+                Expanded(flex: 3, child: secaoProdutos),
+                Divider(height: 1, color: Colors.grey.shade300),
+                Expanded(flex: 2, child: secaoCarrinho),
+              ],
+            );
+          }
+        },
       ),
     );
   }
