@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ItemCarrinho {
   final String id;
@@ -47,6 +49,39 @@ class _TelaPDVState extends State<TelaPDV> {
         _carrinho.removeAt(index);
       }
     });
+  }
+
+  // CEREJA DO BOLO: Envia os dados estruturados da venda em segundo plano para o Google Sheets
+  Future<void> _enviarVendaParaGoogleSheets({
+    required String tipoVenda,
+    required double valor,
+  }) async {
+    // TODO: SUBSTITUA ESTA URL PELA URL COPIADA NO PASSO 5 DA SUA IMPLANTAÇÃO DO APPS SCRIPT
+    final url = Uri.parse(https://script.google.com/macros/s/AKfycbxZzWXFobdqVsQhOwUb-n1LOpLcOJY2bQUvYFYxx4kMRMv4_ITE4YdDS5z3waF56fGHrw/exec);
+
+    try {
+      final operador = "Dispositivo Móvel"; // Define o operador padrão ou puxe dinamicamente
+
+      final resposta = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          'dataHora': DateTime.now().toLocal().toString().split('.')[0], // Formato Limpo: AAAA-MM-DD HH:MM:SS
+          'operador': operador,
+          'tipoVenda': tipoVenda,
+          'valor': valor,
+          'caixaId': widget.caixaId,
+        }),
+      );
+
+      if (resposta.statusCode == 200) {
+        print("Sincronização com Google Sheets: Sucesso!");
+      } else {
+        print("Erro Sheets: Código ${resposta.statusCode}");
+      }
+    } catch (e) {
+      print("Falha ao conectar com o Google Sheets: $e");
+    }
   }
 
   void _abrirModalPagamento() {
@@ -135,8 +170,16 @@ class _TelaPDVState extends State<TelaPDV> {
         }).toList(),
       });
 
+      // Executa o commit das alterações locais no Firebase
       await batch.commit();
       _mostrarMensagem('Venda em $formaPagamento realizada com sucesso!', Colors.green);
+
+      // CEREJA DO BOLO: Sincroniza em segundo plano com a planilha do Google Sheets
+      _enviarVendaParaGoogleSheets(
+        tipoVenda: formaPagamento,
+        valor: valorVenda,
+      );
+
     } catch (e) {
       _mostrarMensagem('Ocorreu um erro ao salvar a venda: $e', Colors.red);
     }
@@ -159,8 +202,6 @@ class _TelaPDVState extends State<TelaPDV> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // Se a tela for larga (Web/Tablet), coloca carrinho na lateral direita
-          // Se for estreita (Celular), coloca o carrinho embaixo
           bool telaLarga = constraints.maxWidth > 700;
 
           Widget secaoProdutos = StreamBuilder<QuerySnapshot>(
@@ -178,8 +219,8 @@ class _TelaPDVState extends State<TelaPDV> {
               return GridView.builder(
                 padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: telaLarga ? 4 : 2, // 4 colunas na web, 2 no celular
-                  childAspectRatio: 1.9, // Formato mais quadrado e equilibrado
+                  crossAxisCount: telaLarga ? 4 : 2,
+                  childAspectRatio: 1.9,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -189,7 +230,6 @@ class _TelaPDVState extends State<TelaPDV> {
                   String id = produtos[index].id;
                   String nome = prodData['nome'] ?? 'Sem nome';
                   
-                  // Garantindo que tipos numéricos do Firestore sejam lidos corretamente
                   double preco = 0.0;
                   if (prodData['preco'] != null) {
                     preco = (prodData['preco'] is int) 
@@ -328,7 +368,6 @@ class _TelaPDVState extends State<TelaPDV> {
             ),
           );
 
-          // Retorno Responsivo Inteligente
           if (telaLarga) {
             return Row(
               children: [
