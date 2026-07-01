@@ -51,16 +51,16 @@ class _TelaPDVState extends State<TelaPDV> {
     });
   }
 
-  // CEREJA DO BOLO: Envia os dados estruturados da venda em segundo plano para o Google Sheets
+// CEREJA DO BOLO: Envia os dados estruturados da venda em segundo plano para o Google Sheets
   Future<void> _enviarVendaParaGoogleSheets({
     required String tipoVenda,
     required double valor,
   }) async {
-    // TODO: SUBSTITUA ESTA URL PELA URL COPIADA NO PASSO 5 DA SUA IMPLANTAÇÃO DO APPS SCRIPT
-    final url = Uri.parse(https://script.google.com/macros/s/AKfycbxZzWXFobdqVsQhOwUb-n1LOpLcOJY2bQUvYFYxx4kMRMv4_ITE4YdDS5z3waF56fGHrw/exec);
+    // CORRIGIDO: Agora a URL possui as aspas obrigatórias
+    final url = Uri.parse('https://script.google.com/macros/s/AKfycbxZzWXFobdqVsQhOwUb-n1LOpLcOJY2bQUvYFYxx4kMRMv4_ITE4YdDS5z3waF56fGHrw/exec');
 
     try {
-      final operador = "Dispositivo Móvel"; // Define o operador padrão ou puxe dinamicamente
+      final operador = "Dispositivo Móvel"; 
 
       final resposta = await http.post(
         url,
