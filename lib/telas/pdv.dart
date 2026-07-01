@@ -179,7 +179,7 @@ class _TelaPDVState extends State<TelaPDV> {
                 padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: telaLarga ? 4 : 2, // 4 colunas na web, 2 no celular
-                  childAspectRatio: 1.6, // Formato mais quadrado e equilibrado
+                  childAspectRatio: 1.8, // Formato mais quadrado e equilibrado
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
