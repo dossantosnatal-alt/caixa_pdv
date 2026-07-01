@@ -1,49 +1,49 @@
-name: Gerar APK na Nuvem
+name: Compilar APK (Release)
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Baixar codigo do repositorio
-<<<<<<< HEAD
+      - name: Checkout do código
         uses: actions/checkout@v3
 
-      - name: Instalar o Java
+      - name: Configurar Java
         uses: actions/setup-java@v3
-=======
-        uses: actions/checkout@v4
-
-      - name: Instalar o Java
-        uses: actions/setup-java@v4
->>>>>>> 5f33b952f513e202af05fcbe9a2199b5687e0803
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Instalar o Flutter
+      - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
-      - name: Baixar dependencias
+      - name: Instalar dependências
         run: flutter pub get
 
-      - name: Compilar o APK de Release
+      - name: Garantir suporte ao Android
+        run: flutter create --platforms=android .
+
+      - name: Injetar Google Services JSON
+        run: |
+          mkdir -p android/app
+          cat << 'EOF' > android/app/google-services.json
+          ${{ secrets.FIREBASE_ANDROID_JSON }}
+          EOF
+
+      - name: Compilar APK
         run: flutter build apk --release
 
-      - name: Disponibilizar o arquivo para Download
-<<<<<<< HEAD
-        uses: actions/upload-artifact@v3
-        with:
-          name: aplicativo-caixa
-          path: build/app/outputs/flutter-apk/app-release.apk
-=======
+      - name: Upload do APK como Artefato
         uses: actions/upload-artifact@v4
         with:
-          name: aplicativo-caixa
+          name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
->>>>>>> 5f33b952f513e202af05fcbe9a2199b5687e0803
