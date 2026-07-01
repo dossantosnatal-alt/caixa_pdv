@@ -172,126 +172,136 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
           )
         ],
       ),
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 800),
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Operador: $_operadorEmail', style: const TextStyle(fontSize: 16, color: Colors.grey)),
-              const SizedBox(height: 16),
-              
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  childAspectRatio: 2.5,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: [
-                    _cardValor('Saldo Inicial (Dinheiro)', saldoInicial, Colors.blue),
-                    _cardValor('Total Sangrias/Retiradas', totalSangrias, Colors.red),
-                    _cardValor('Vendas em Dinheiro (+)', vDinheiro, Colors.green),
-                    _cardValor('Vendas em PIX', vPix, Colors.teal),
-                    _cardValor('Vendas em Débito', vDebito, Colors.orange),
-                    _cardValor('Vendas em Crédito', vCredito, Colors.purple),
-                  ],
-                ),
-              ),
-
-              // AJUSTADO: Card modificado com Wrap para evitar quebras feias em telas pequenas
-              Card(
-                color: Colors.amber[50],
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    runAlignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 800),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Operador: $_operadorEmail', style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 16),
+                  
+                  // AJUSTADO: Grid compactado e limpo sem esticar verticalmente de forma exagerada
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    childAspectRatio: 2.6,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                     children: [
-                      const Text(
-                        'SALDO ESPERADO NA GAVETA (DINHEIRO):',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      _cardValor('Saldo Inicial (Dinheiro)', saldoInicial, Colors.blue),
+                      _cardValor('Total Sangrias/Retiradas', totalSangrias, Colors.red),
+                      _cardValor('Vendas em Dinheiro (+)', vDinheiro, Colors.green),
+                      _cardValor('Vendas em PIX', vPix, Colors.teal),
+                      _cardValor('Vendas em Débito', vDebito, Colors.orange),
+                      _cardValor('Vendas em Crédito', vCredito, Colors.purple),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // AJUSTADO: Card modificado com Wrap para acomodar o texto elegantemente
+                  Card(
+                    color: Colors.amber[50],
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        runAlignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          const Text(
+                            'SALDO ESPERADO NA GAVETA (DINHEIRO):',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                          ),
+                          Text(
+                            'R\$ ${saldoCalculadoDinheiro.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, color: Colors.indigo),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'R\$ ${saldoCalculadoDinheiro.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.indigo),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // CORRIGIDO: Botões superiores simétricos, com altura idêntica e cantos arredondados padronizados
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.local_atm),
+                            label: const Text('SANGRIA', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            onPressed: () => _abrirModalSangria(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red, 
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.shopping_cart),
+                            label: const Text('VENDAS (PDV)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.pushNamed(
+                                context,
+                                '/pdv',
+                                arguments: _caixaAtualDoc!.id,
+                              ).then((_) => _verificarStatusCaixa());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green, 
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // AJUSTADO: Botões superiores simétricos, com altura idêntica e cantos arredondados padronizados
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 55,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.local_atm),
-                        label: const Text('SANGRIA', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        onPressed: () => _abrirModalSangria(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red, 
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                  const SizedBox(height: 12),
+                  
+                  // CORRIGIDO: Botão inferior padronizado na mesma linguagem visual e altura
+                  SizedBox(
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.lock),
+                      label: const Text('FECHAR CAIXA DIÁRIO', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      onPressed: () => _abrirModalFechamento(saldoCalculadoDinheiro),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo, 
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: SizedBox(
-                      height: 55,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.shopping_cart),
-                        label: const Text('VENDAS (PDV)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TelaPDV(caixaId: _caixaAtualDoc!.id),
-                            ),
-                          ).then((_) => _verificarStatusCaixa());
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green, 
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  )
                 ],
               ),
-              const SizedBox(height: 16),
-              
-              // AJUSTADO: Botão inferior padronizado na mesma linguagem visual e altura
-              SizedBox(
-                height: 55,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.lock),
-                  label: const Text('FECHAR CAIXA DIÁRIO', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  onPressed: () => _abrirModalFechamento(saldoCalculadoDinheiro),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo, 
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              )
-            ],
+            ),
           ),
         ),
       ),
@@ -302,31 +312,33 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
     return Scaffold(
       appBar: AppBar(title: const Text('Abertura de Caixa'), backgroundColor: Colors.indigo, foregroundColor: Colors.white),
       body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.lock_open, size: 64, color: Colors.indigo),
-              const SizedBox(height: 16),
-              const Text('O Caixa está Fechado.', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              const Text('Informe o valor em dinheiro do fundo ou saldo inicial para iniciar as operações do dia.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _saldoInicialController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Fundo Inicial (R\$ Dinheiro)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.attach_money)),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _abrirCaixa,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: const Text('ABRIR CAIXA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              )
-            ],
+        child: SingleChildScrollView(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.lock_open, size: 64, color: Colors.indigo),
+                const SizedBox(height: 16),
+                const Text('O Caixa está Fechado.', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                const Text('Informe o valor em dinheiro do fundo ou saldo inicial para iniciar as operações do dia.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _saldoInicialController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Fundo Inicial (R\$ Dinheiro)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.attach_money)),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _abrirCaixa,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: const Text('ABRIR CAIXA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
           ),
         ),
       ),
@@ -335,16 +347,17 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
 
   Widget _cardValor(String titulo, double valor, Color cor) {
     return Card(
-      elevation: 2,
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(titulo, style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            Text('R\$ ${valor.toStringAsFixed(2)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cor)),
+            Text(titulo, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text('R\$ ${valor.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cor)),
           ],
         ),
       ),
@@ -355,6 +368,7 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Realizar Sangria (Retirada)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -365,7 +379,7 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: _realizarSangria, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white), child: const Text('Confirmar')),
+          ElevatedButton(onPressed: _realizarSangria, style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Text('Confirmar')),
         ],
       ),
     );
@@ -375,6 +389,7 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Conferência do Caixa'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -391,7 +406,7 @@ class _TelaPainelCaixaState extends State<TelaPainelCaixa> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Voltar')),
-          ElevatedButton(onPressed: () => _fecharCaixa(saldoCalculadoDinheiro), style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white), child: const Text('Concluir Fechamento')),
+          ElevatedButton(onPressed: () => _fecharCaixa(saldoCalculadoDinheiro), style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))), child: const Text('Concluir Fechamento')),
         ],
       ),
     );
