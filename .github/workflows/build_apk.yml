@@ -16,13 +16,13 @@ jobs:
       - name: Configurar o Java (JDK)
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'corretto'
           java-version: '17'
 
       - name: Configurar o Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.x' # Ajusta para a versão aproximada do seu Flutter
+          flutter-version: '3.22.x' # Ajusta para a versão aproximada do seu Flutter
 
       - name: Instalar Dependências
         run: flutter pub get
