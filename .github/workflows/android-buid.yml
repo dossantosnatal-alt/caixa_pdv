@@ -27,7 +27,6 @@ steps:
   - name: Garantir suporte ao Android  
     run: flutter create --platforms=android .  
   
-  \# PASSO ATUALIZADO: Forma ultra segura contra erros de digitação e quebras de linha  
   - name: Injetar Google Services JSON  
     run: |  
       mkdir -p android/app  
