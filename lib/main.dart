@@ -34,19 +34,20 @@ class MeuApp extends StatelessWidget {
       ),
       home: const TelaLogin(),
       
-      // Rotas corrigidas para os construtores reais do seu projeto
+      // Gerador de rotas corrigido para repassar os argumentos (settings)
       onGenerateRoute: (settings) {
         if (settings.name == '/caixa') {
           return MaterialPageRoute(
             builder: (context) => const TelaPainelCaixa(),
+            settings: settings, // <-- CORREÇÃO: Encaminha os argumentos do Login para o Painel
           );
         }
         
         if (settings.name == '/pdv') {
-          // Captura o ID do caixa passado como argumento, ou usa um padrão se vier vazio
           final args = settings.arguments as String? ?? 'padrão';
           return MaterialPageRoute(
             builder: (context) => TelaPDV(caixaId: args),
+            settings: settings, // <-- Mantém a consistência de navegação
           );
         }
         
