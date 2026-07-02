@@ -57,7 +57,7 @@ class _TelaPDVState extends State<TelaPDV> {
     required double valor,
     required List<ItemCarrinho> itens,
   }) async {
-    final url = Uri.parse('https://script.google.com/macros/s/AKfycbxZzWXFobdqVsQhOwUb-n1LOpLcOJY2bQUvYFYxx4kMRMv4_ITE4YdDS5z3waF56fGHrw/exec');
+    final url = Uri.parse('https://script.google.com/macros/s/AKfycbzUHNjVR-AItJxBTnGF4CFYglAdLcw9g7aoT-SGGZfPSmWDEbFZ_X5icsjK05-8kdq1tQ/exec');
 
     try {
       final operador = "Dispositivo Móvel"; 
