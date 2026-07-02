@@ -51,22 +51,25 @@ class _TelaPDVState extends State<TelaPDV> {
     });
   }
 
-// CEREJA DO BOLO: Envia os dados estruturados da venda em segundo plano para o Google Sheets
+  // CORRIGIDO: Agora recebe também a lista de itens para sincronizar a aba "Produtos"
   Future<void> _enviarVendaParaGoogleSheets({
     required String tipoVenda,
     required double valor,
+    required List<ItemCarrinho> itens,
   }) async {
-    // CORRIGIDO: Agora a URL possui as aspas obrigatórias
     final url = Uri.parse('https://script.google.com/macros/s/AKfycbxZzWXFobdqVsQhOwUb-n1LOpLcOJY2bQUvYFYxx4kMRMv4_ITE4YdDS5z3waF56fGHrw/exec');
 
     try {
       final operador = "Dispositivo Móvel"; 
+      final dataFormatada = DateTime.now().toLocal().toString().split('.')[0];
 
+      // 1. Envia os dados estruturados da venda para a aba "Vendas"
       final resposta = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          'dataHora': DateTime.now().toLocal().toString().split('.')[0], // Formato Limpo: AAAA-MM-DD HH:MM:SS
+          'acao': 'venda',
+          'dataHora': dataFormatada,
           'operador': operador,
           'tipoVenda': tipoVenda,
           'valor': valor,
@@ -75,9 +78,37 @@ class _TelaPDVState extends State<TelaPDV> {
       );
 
       if (resposta.statusCode == 200) {
-        print("Sincronização com Google Sheets: Sucesso!");
+        print("Sincronização da Venda com Google Sheets: Sucesso!");
       } else {
-        print("Erro Sheets: Código ${resposta.statusCode}");
+        print("Erro Sheets Vendas: Código ${resposta.statusCode}");
+      }
+
+      // 2. Envia os dados de cada produto vendido para atualizar a aba "Produtos"
+      for (var item in itens) {
+        // Vai buscar o stock atualizado diretamente ao Firebase para garantir consistência
+        final doc = await FirebaseFirestore.instance.collection('produtos').doc(item.id).get();
+        if (doc.exists) {
+          final dados = doc.data() as Map<String, dynamic>;
+          final int estoqueAtualizado = (dados['estoque'] ?? 0).toInt();
+
+          final respostaProduto = await http.post(
+            url,
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              'acao': 'atualizar_produto',
+              'id': item.id,
+              'nome': item.nome,
+              'preco': item.preco,
+              'estoque': estoqueAtualizado, // Envia o novo stock rebaixado
+            }),
+          );
+
+          if (respostaProduto.statusCode == 200) {
+            print("Produto ${item.nome} sincronizado com Sheets!");
+          } else {
+            print("Erro Sheets Produto: Código ${respostaProduto.statusCode}");
+          }
+        }
       }
     } catch (e) {
       print("Falha ao conectar com o Google Sheets: $e");
@@ -174,10 +205,11 @@ class _TelaPDVState extends State<TelaPDV> {
       await batch.commit();
       _mostrarMensagem('Venda em $formaPagamento realizada com sucesso!', Colors.green);
 
-      // CEREJA DO BOLO: Sincroniza em segundo plano com a planilha do Google Sheets
+      // CORRIGIDO: Passa os itensProcessando para atualizar o stock correto na planilha
       _enviarVendaParaGoogleSheets(
         tipoVenda: formaPagamento,
         valor: valorVenda,
+        itens: itensProcessando,
       );
 
     } catch (e) {
